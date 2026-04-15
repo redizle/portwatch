@@ -2,69 +2,71 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 	"time"
 )
 
-// Config holds the portwatch daemon configuration.
+// Config holds the full portwatch daemon configuration.
 type Config struct {
 	Ports        []int         `json:"ports"`
-	ScanInterval time.Duration `json:"scan_interval"`
-	LogFile      string        `json:"log_file"`
-	AlertHook    string        `json:"alert_hook"`
-	AlertOnOpen  bool          `json:"alert_on_open"`
-	AlertOnClose bool          `json:"alert_on_close"`
+	Interval     time.Duration `json:"interval"`
+	LogFormat    string        `json:"log_format"`
+	LogOutput    string        `json:"log_output"`
+	AlertHooks   []string      `json:"alert_hooks"`
+	HistoryFile  string        `json:"history_file"`
+	MaxHistory   int           `json:"max_history"`
 }
 
-// DefaultConfig returns a sensible default configuration.
+// DefaultConfig returns a Config populated with sensible defaults.
 func DefaultConfig() *Config {
 	return &Config{
-		Ports:        []int{80, 443, 8080, 8443},
-		ScanInterval: 30 * time.Second,
-		LogFile:      "portwatch.log",
-		AlertOnOpen:  true,
-		AlertOnClose: false,
+		Ports:      []int{80, 443, 8080},
+		Interval:   10 * time.Second,
+		LogFormat:  "text",
+		LogOutput:  "stdout",
+		AlertHooks: []string{},
+		HistoryFile: "",
+		MaxHistory: 1000,
 	}
 }
 
-// Load reads a config from a JSON file at the given path.
-// If the file doesn't exist, it returns the default config.
+// Load reads a JSON config file from path, falling back to defaults for
+// unspecified fields.
 func Load(path string) (*Config, error) {
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return DefaultConfig(), nil
-	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, fmt.Errorf("opening config file: %w", err)
-	}
-	defer f.Close()
-
 	cfg := DefaultConfig()
-	if err := json.NewDecoder(f).Decode(cfg); err != nil {
-		return nil, fmt.Errorf("decoding config: %w", err)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
 	}
 
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
+	if err := json.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+
+	if err nil {
+		return nil, err
 	}
 
 	return cfg, nil
 }
 
-// Validate checks that the config values are sensible.
+// Validate checks that the configuration values are acceptable.
 func (c *Config) Validate() error {
-	if len(c.Ports) == 0 {
-		return fmt.Errorf("at least one port must be specified")
-	}
-	for _, p := range c.Ports {
+	for := range c.Ports {
 		if p < 1 || p > 65535 {
-			return fmt.Errorf("port %d is out of valid range (1-65535)", p)
+			return errors.New("config: port out of range (1-65535)")
 		}
 	}
-	if c.ScanInterval < time.Second {
-		return fmt.Errorf("scan_interval must be at least 1 second")
+	if c.Interval < time.Second {
+		return errors.New("config: interval must be at least 1s")
+	}
+	if c.LogFormat != "text" && c.LogFormat != "json" {
+		return errors.New("config: log_format must be 'text' or 'json'")
+	}
+	if c.MaxHistory < 0 {
+		return errors.New("config: max_history must be non-negative")
 	}
 	return nil
 }

@@ -1,8 +1,9 @@
 {
-  "ports": [22, 80, 443, 3306, 5432, 6379, 8080],
-  "scan_interval": "30s",
-  "log_file": "portwatch.log",
-  "alert_hook": "https://hooks.example.com/portwatch",
-  "alert_on_open": true,
-  "alert_on_close": false
+  "ports": [22, 80, 443, 8080, 9090],
+  "interval": 15000000000,
+  "log_format": "json",
+  "log_output": "stdout",
+  "alert_hooks": ["http://localhost:9000/hook"],
+  "history_file": "/tmp/portwatch_history.json",
+  "max_history": 500
 }
