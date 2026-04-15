@@ -7,29 +7,26 @@ import (
 	"time"
 )
 
-// Entry represents a single port event recorded in history.
+// Entry represents a single recorded port event.
 type Entry struct {
 	Port      int       `json:"port"`
-	Status    string    `json:"status"`
+	Event     string    `json:"event"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
-// History manages an in-memory log of port events with optional file persistence.
+// History stores a bounded log of port events with optional persistence.
 type History struct {
-	mu      sync.RWMutex
-	entries []Entry
-	filePath string
+	mu         sync.RWMutex
+	entries    []Entry
 	maxEntries int
+	filePath   string
 }
 
-// New creates a new History instance. filePath may be empty to disable persistence.
-func New(filePath string, maxEntries int) *History {
-	if maxEntries <= 0 {
-		maxEntries = 1000
-	}
+// New creates a History with the given capacity and optional file path.
+func New(maxEntries int, filePath string) *History {
 	h := &History{
-		filePath:   filePath,
 		maxEntries: maxEntries,
+		filePath:   filePath,
 	}
 	if filePath != "" {
 		_ = h.load()
@@ -37,36 +34,17 @@ func New(filePath string, maxEntries int) *History {
 	return h
 }
 
-// Record appends a new entry and persists if a file path is configured.
-func (h *History) Record(port int, status string) {
+// Record appends a new event entry for the given port.
+func (h *History) Record(port int, event string, ts time.Time) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
-	h.entries = append(h.entries, Entry{
-		Port:      port,
-		Status:    status,
-		Timestamp: time.Now().UTC(),
-	})
-
+	h.entries = append(h.entries, Entry{Port: port, Event: event, Timestamp: ts})
 	if len(h.entries) > h.maxEntries {
 		h.entries = h.entries[len(h.entries)-h.maxEntries:]
 	}
-
-	if h.filePath != "" {
-		_ = h.persist()
-	}
 }
 
-// GetAll returns a copy of all recorded entries.
-func (h *History) GetAll() []Entry {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	out := make([]Entry, len(h.entries))
-	copy(out, h.entries)
-	return out
-}
-
-// GetByPort returns entries filtered by port number.
+// GetByPort returns all entries for a specific port.
 func (h *History) GetByPort(port int) []Entry {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -79,8 +57,28 @@ func (h *History) GetByPort(port int) []Entry {
 	return out
 }
 
-func (h *History) persist() error {
-	data, err := json.MarshalIndent(h.entries, "", "  ")
+// Recent returns up to n most recent entries across all ports.
+func (h *History) Recent(n int) []Entry {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if n >= len(h.entries) {
+		copy := make([]Entry, len(h.entries))
+		copy = append(copy[:0], h.entries...)
+		return copy
+	}
+	result := make([]Entry, n)
+	copy(result, h.entries[len(h.entries)-n:])
+	return result
+}
+
+// Persist writes the current history to disk.
+func (h *History) Persist() error {
+	if h.filePath == "" {
+		return nil
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	data, err := json.Marshal(h.entries)
 	if err != nil {
 		return err
 	}
@@ -93,4 +91,13 @@ func (h *History) load() error {
 		return err
 	}
 	return json.Unmarshal(data, &h.entries)
+}
+
+// All returns a copy of all recorded entries.
+func (h *History) All() []Entry {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := make([]Entry, len(h.entries))
+	copy(out, h.entries)
+	return out
 }

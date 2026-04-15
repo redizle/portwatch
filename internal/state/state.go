@@ -5,74 +5,66 @@ import (
 	"time"
 )
 
-// PortStatus represents the current known status of a port.
-type PortStatus struct {
-	Port     int
-	Open     bool
-	LastSeen time.Time
-	FirstSeen time.Time
+// PortEntry holds the last known status of a port.
+type PortEntry struct {
+	Open      bool
+	LastSeen  time.Time
+	ChangedAt time.Time
 }
 
-// Store holds the last known state of all monitored ports.
-type Store struct {
-	mu      sync.RWMutex
-	ports   map[int]*PortStatus
+// State tracks the current open/closed status of monitored ports.
+type State struct {
+	mu    sync.RWMutex
+	ports map[int]PortEntry
 }
 
-// New creates a new state Store.
-func New() *Store {
-	return &Store{
-		ports: make(map[int]*PortStatus),
-	}
+// New creates an empty State.
+func New() *State {
+	return &State{ports: make(map[int]PortEntry)}
 }
 
-// Update sets the current status for a port and returns whether the state changed.
-func (s *Store) Update(port int, open bool) (changed bool) {
+// Update records a new status for the given port.
+// Returns true if the status changed from the previous value.
+func (s *State) Update(port int, open bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
 	now := time.Now()
 	prev, exists := s.ports[port]
-
-	if !exists {
-		s.ports[port] = &PortStatus{
-			Port:      port,
-			Open:      open,
-			LastSeen:  now,
-			FirstSeen: now,
-		}
-		return true
+	changed := !exists || prev.Open != open
+	entry := PortEntry{
+		Open:      open,
+		LastSeen:  now,
+		ChangedAt: prev.ChangedAt,
 	}
-
-	if prev.Open != open {
-		prev.Open = open
-		prev.LastSeen = now
-		return true
+	if changed {
+		entry.ChangedAt = now
 	}
-
-	prev.LastSeen = now
-	return false
+	s.ports[port] = entry
+	return changed
 }
 
-// Get returns the status for a given port, and whether it exists.
-func (s *Store) Get(port int) (*PortStatus, bool) {
+// Get returns the entry for a port and whether it exists.
+func (s *State) Get(port int) (PortEntry, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	ps, ok := s.ports[port]
-	if !ok {
-		return nil, false
-	}
-	copy := *ps
-	return &copy, true
+	e, ok := s.ports[port]
+	return e, ok
 }
 
-// Snapshot returns a copy of all port statuses.
-func (s *Store) Snapshot() []PortStatus {
+// All returns a snapshot copy of all tracked port entries.
+func (s *State) All() map[int]PortEntry {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	result := make([]PortStatus, 0, len(s.ports))
-	for _, ps := range s.ports {
-		result = append(result, *ps)
+	out := make(map[int]PortEntry, len(s.ports))
+	for k, v := range s.ports {
+		out[k] = v
 	}
-	return result
+	return out
+}
+
+// Delete removes a port from tracking.
+func (s *State) Delete(port int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.ports, port)
 }
