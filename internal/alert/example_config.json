@@ -1,0 +1,7 @@
+{
+  "webhook_urls": [
+    "https://hooks.example.com/portwatch",
+    "https://alerts.example.com/notify"
+  ],
+  "timeout_seconds": 5
+}
