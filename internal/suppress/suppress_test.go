@@ -40,6 +40,12 @@ func TestLift_RemovesSuppression(t *testing.T) {
 	}
 }
 
+// TestLift_NoopOnUnknownPort ensures Lift does not panic on an unknown port.
+func TestLift_NoopOnUnknownPort(t *testing.T) {
+	s := suppress.New()
+	s.Lift(1234) // should not panic
+}
+
 func TestActive_ReturnsOnlyLive(t *testing.T) {
 	s := suppress.New()
 	s.Suppress(80, "a", 1*time.Hour)
