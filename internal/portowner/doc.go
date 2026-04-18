@@ -8,5 +8,10 @@
 //
 //	r := portowner.New()
 //	r.Set(8080, "team-backend")
+//	r.Set(9090, "team-metrics")
 //	owner, ok := r.Get(8080)
+//	// owner == "team-backend", ok == true
+//
+//	_, ok = r.Get(1234)
+//	// ok == false, port has no registered owner
 package portowner
