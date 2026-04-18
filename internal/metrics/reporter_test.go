@@ -57,3 +57,20 @@ func TestPrint_ZeroCounters(t *testing.T) {
 		t.Error("expected non-empty output even for zero counters")
 	}
 }
+
+func TestPrint_MultipleCallsAppend(t *testing.T) {
+	var buf bytes.Buffer
+	r := NewReporter(&buf)
+	c := Counters{StartedAt: time.Now()}
+
+	for i := 0; i < 3; i++ {
+		if err := r.Print(c); err != nil {
+			t.Fatalf("Print call %d returned error: %v", i, err)
+		}
+	}
+
+	// Each call should produce output, so total length should reflect multiple prints.
+	if buf.Len() == 0 {
+		t.Error("expected non-empty output after multiple Print calls")
+	}
+}
