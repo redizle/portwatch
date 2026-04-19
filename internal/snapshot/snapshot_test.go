@@ -61,6 +61,14 @@ func TestAll_ReturnsCopy(t *testing.T) {
 	}
 }
 
+func TestAll_Empty(t *testing.T) {
+	s := New()
+	all := s.All()
+	if len(all) != 0 {
+		t.Fatalf("expected 0 entries, got %d", len(all))
+	}
+}
+
 func TestDiff_NilPrev_ReturnsOpenPorts(t *testing.T) {
 	s := New()
 	s.Set(80, true)
