@@ -55,6 +55,16 @@ func TestRecord_InvalidPort(t *testing.T) {
 	}
 }
 
+func TestRecord_InvalidStatus(t *testing.T) {
+	tr := New()
+	if err := tr.Record(80, "unknown"); err == nil {
+		t.Error("expected error for invalid status 'unknown'")
+	}
+	if err := tr.Record(80, ""); err == nil {
+		t.Error("expected error for empty status")
+	}
+}
+
 func TestGet_Missing(t *testing.T) {
 	tr := New()
 	_, ok := tr.Get(9999)
