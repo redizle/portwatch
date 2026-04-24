@@ -62,3 +62,11 @@ func TestPublish_MultipleHandlers(t *testing.T) {
 		t.Fatalf("expected 3 calls, got %d", count)
 	}
 }
+
+func TestLen_NoSubscribers(t *testing.T) {
+	b := portevents.New()
+	// Len on an event type with no subscribers should return 0, not panic
+	if n := b.Len(portevents.EventOpened); n != 0 {
+		t.Fatalf("expected 0 handlers for unseen event type, got %d", n)
+	}
+}
